@@ -5084,7 +5084,7 @@ const weaponAnim={rack:0,reload:0,kind:'',soundAt:0,played:false,shot:0};
 const origShoot=shoot;
 shoot=function(g,gs){origShoot(g,gs);weaponAnim.shot=.24;if(gs.sg)weaponAnim.rack=.34;if(gs.sniper)weaponAnim.rack=.62};
 const origReload=reload;
-reload=function(){const old=rel;origReload();if(rel>old){weaponAnim.reload=rel;weaponAnim.kind=GS[S.gun].sg?'shell':'mag';weaponAnim.played=false;weaponAnim.soundAt=weaponAnim.kind==='shell'?.34:rel*.62;if(GS[S.gun].sniper)snd('snReload',null,.8*S.gv)}};
+reload=function(){const old=rel;origReload();if(rel>old){weaponAnim.reload=rel;weaponAnim.kind=GS[S.gun].sg?'shell':'mag';weaponAnim.played=false;weaponAnim.soundAt=weaponAnim.kind==='shell'?.34:rel*.62;/* sniper reload sound is timed during the hand animation */}};
 const origMuzzleFx=muzzleFx;
 muzzleFx=function(p,d,big){for(let i=0;i<Math.max(2,Math.round((big?10:5)/2.5));i++)puff(p.x,p.y,p.z,d.x*2+rnd(),d.y*2+rnd(),d.z*2+rnd(),.12,.55,.65,.2);for(let i=0;i<3;i++)puff(p.x,p.y,p.z,d.x*.25+rnd()*.3,d.y*.25+rnd()*.3+.35,d.z*.25+rnd()*.3,1.15,.25,.25,.25)};
 /* smoke uses the existing particle pool; alpha/intensity is intentionally low */
@@ -5095,20 +5095,22 @@ snd=function(n,pos,v=1,r=1){
  if(n==='reload'&&S.gun===5){baseSnd('snReload',pos,v*S.gv,r);return}
  const loud=/^(pistol|m4|sg|smg|snShot)$/.test(n);
  if(loud&&pos){const d=Math.hypot(pos.x-P.x,pos.z-P.z);if(d<8){hearing.peak=Math.max(hearing.peak,(1-d/8)*v);hearing.last=T}}
- baseSnd(n,pos,v*(/^(pistol|m4|sg|smg|snShot|sgRack|snRack|snReload)$/.test(n)?S.gv:1),r);
+ baseSnd(n,pos,v,r);
 };
+const origNetTick=netTick;
+netTick=function(dt){origNetTick(dt);if(hearing.loss>0){const f=1-hearing.loss;for(const id in peers){const p=peers[id];if(p.vg)p.vg.gain.value*=f}}};
 const origStep=step;
 step=function(dt){
  const gp=navigator.getGamepads&&navigator.getGamepads()[0];
  if(gp&&!tabOpen&&!dead){
-  const dz=v=>Math.abs(v)<.16?0:v;
+  const dz=v=>Math.abs(v)<S.padDead?0:v;
   const lx=dz(gp.axes[0]||0),ly=dz(gp.axes[1]||0),rx=dz(gp.axes[2]||0),ry=dz(gp.axes[3]||0);
   K.KeyW=ly<-.2;K.KeyS=ly>.2;K.KeyA=lx<-.2;K.KeyD=lx>.2;
   K.ShiftLeft=!!(gp.buttons[4]&&gp.buttons[4].pressed);
   K.Space=!!(gp.buttons[0]&&gp.buttons[0].pressed);
   if(gp.buttons[7]&&gp.buttons[7].pressed){mouse=true;pull=true}else mouse=false;
   rmb=!!(gp.buttons[6]&&gp.buttons[6].pressed);
-  P.yaw-=rx*dt*2.5;P.pitch=clamp(P.pitch+ry*dt*2.1,-1.45,1.45);
+  P.yaw-=rx*dt*2.5*S.padSens;P.pitch=clamp(P.pitch+ry*dt*2.1*S.padSens,-1.45,1.45);
   if(gp.buttons[2]&&gp.buttons[2].pressed&&!gp.buttons[2].wasPressed){S.gun=(S.gun+4)%6;rel=0}
   gp.buttons[2]&&(gp.buttons[2].wasPressed=gp.buttons[2].pressed);
   if(gp.buttons[3]&&gp.buttons[3].pressed&&!gp.buttons[3].wasPressed){S.gun=(S.gun+1)%6;rel=0}
@@ -5116,6 +5118,7 @@ step=function(dt){
  }
  origStep(dt);
  const g=guns[S.gun],gs=GS[S.gun];
+ if(gs.sg&&rel>weaponAnim.reload+.01){weaponAnim.reload=rel;weaponAnim.kind='shell';weaponAnim.played=false}
  if(weaponAnim.rack>0){weaponAnim.rack=Math.max(0,weaponAnim.rack-dt);const f=1-weaponAnim.rack/(gs.sniper?.62:.34);vm.position.y-=Math.sin(Math.PI*f)*.09;vm.rotation.x+=Math.sin(Math.PI*f)*.28;if(gs.sniper&&g.bolt)g.bolt.position.x=.09+Math.sin(Math.PI*f)*.11;
   if(!weaponAnim.played&&weaponAnim.rack<(gs.sniper?.42:.22)){snd(gs.sniper?'snRack':'sgRack',null,.85*S.gv);weaponAnim.played=true}}
  if(weaponAnim.reload>0){weaponAnim.reload=Math.max(0,weaponAnim.reload-dt);const f=1-weaponAnim.reload/Math.max(.01,gs.dur),a=g.arms||[];
@@ -5127,7 +5130,7 @@ step=function(dt){
  if(S.gun===5&&P.ad>.2){cam.fov=lerp(cam.fov,Math.max(18,140-(P.ad*112)),Math.min(1,dt*12));cam.updateProjectionMatrix()}
  if(hearing.peak>.18&&T-hearing.last<.18)hearing.loss=Math.min(.75,hearing.loss+dt*.8);
  hearing.loss=Math.max(0,hearing.loss-dt*.12);hearing.peak*=Math.max(0,1-dt*2);
- if(hearing.loss>0){const fade=1-hearing.loss;for(const id in peers){const p=peers[id];if(p.vg)p.vg.gain.value*=fade}}
+ /* hearing loss is applied after proximity voice gains are refreshed below */
 };
 /* Rifle/SMG fire-rate swap and sniper single-projectile zero-spread are explicit in GS. */
 GS[5].spread=0;GS[5].pel=1;GS[5].auto=false;
@@ -5144,8 +5147,9 @@ const oldUI=ui;
 ui=function(){oldUI();if(tab==='settings'&&sub==='controls'){const el=$('tab').querySelector('.cols>div');if(el){el.insertAdjacentHTML('beforeend','<div class="rw"><span>Keyboard bindings (click to change)</span></div>'+Object.entries(binds).map(([k,v])=>'<div class="rw"><span>'+k+'</span><button type="button" data-bind="'+k+'">'+v+'</button></div>').join('')+'<div class="rw"><span>Controller</span><span>Left stick move · Right stick look · RT fire · LT aim · A jump · LB sprint · D-pad weapon</span></div>')}}};
 $('tab').addEventListener('click',e=>{const b=e.target.closest('[data-bind]');if(!b)return;const k=b.dataset.bind;b.textContent='Press a key…';const fn=ev=>{ev.preventDefault();if(ev.code)binds[k]=ev.code;removeEventListener('keydown',fn);ui()};addEventListener('keydown',fn,{once:true})});
 /* Use configured keyboard mappings for movement and actions. */
-const oldStepForBinds=step;
-step=function(dt){for(const k in K)K[k]=false;K[binds.forward]=!!K[binds.forward];oldStepForBinds(dt)};
+S.padSens=1;S.padDead=.16;DEF.padSens=1;DEF.padDead=.16;
+addEventListener('keydown',e=>{for(const [a,c] of Object.entries(binds)){if(c===e.code){const map={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',sprint:'ShiftLeft'};if(map[a])K[map[a]]=true}}});
+addEventListener('keyup',e=>{for(const [a,c] of Object.entries(binds)){if(c===e.code){const map={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',sprint:'ShiftLeft'};if(map[a])K[map[a]]=false}}});
 /* Controller volume and audio distance are attenuated in the sound path; remote weapon shots remain positional. */
 
 buildMaze(Math.random()*1e9|0);spawn();loadSnd();netInit();
