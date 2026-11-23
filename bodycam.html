@@ -138,7 +138,7 @@ function shoot(g,gs){gs.mag--;cd=gs.rate;fl=.05;if(gs.sg){rel=0;if(!gs.semi)pmp=
  muzzleFx(mz,gf,gs.sg);
  for(const id in dm){const dg=Math.min(100,dm[id]);if(id.slice(0,4)=='bot_'&&isHost())botHit(id,dg,myId);else net&&net.ev({type:'hit',to:id,dmg:dg})}if(net)net.ev({type:'shot',gun:S.gun,o:[+mz.x.toFixed(2),+mz.y.toFixed(2),+mz.z.toFixed(2)],h:out})
  const m=casings[ci++%14];m.position.set(.08,-.1,-.35).applyMatrix4(vm.matrixWorld);m.v.set(1.5+Math.random(),1.3+Math.random(),.5+Math.random()*.5).applyQuaternion(aim.quaternion);m.life=2.5;m.w=10+Math.random()*20;m.visible=true}
-function reload(){const gs=GS[S.gun];if(rel<=0&&gs.mag<gs.cap&&gs.res>0){rel=gs.dur;snd(gs.sg?'shell':S.gun==3?'smgr':'reload',null,.8);net&&net.ev({type:'rl'})}}
+function reload(){const gs=GS[S.gun];if(rel<=0&&gs.mag<gs.cap&&gs.res>0){rel=gs.dur;snd(gs.sg?'shell':S.gun==3?'smgr':'reload',null,.8);net&&net.ev({type:'rl',gun:S.gun})}}
 
 /* ---------- frame ---------- */
 function step(dt){
@@ -201,9 +201,9 @@ addEventListener('keydown',e=>{
  if(e.code=='KeyT'&&!e.repeat&&locked()){e.preventDefault();openChat();return}
  if(e.ctrlKey&&document.pointerLockElement)e.preventDefault();
  if(e.repeat)return;K[e.code]=true;if(e.code=='KeyQ')LK=-1;if(e.code=='KeyE')LK=1;
- if(e.code=='KeyR')rT=T;
- if(locked()&&/^Digit[1-5]$/.test(e.code)){S.gun=+e.code.slice(-1)-1;rel=0;drw=1;guns.forEach(q=>q.mag&&(q.mag.visible=true))}});
-addEventListener('keyup',e=>{K[e.code]=false;if(e.code=='KeyR'&&locked()&&T-rT<=.35)reload()});
+ if(e.code==binds.reload||e.code=='KeyR')rT=T;
+ if(locked()&&/^Digit[1-6]$/.test(e.code)){S.gun=+e.code.slice(-1)-1;rel=0;drw=1;guns.forEach(q=>q.mag&&(q.mag.visible=true))}});
+addEventListener('keyup',e=>{K[e.code]=false;if((e.code==binds.reload||e.code=='KeyR')&&locked()&&T-rT<=.35)reload()});
 addEventListener('blur',()=>{for(const k in K)K[k]=false;mouse=false});
 addEventListener('mousemove',e=>{if(!locked())return;const m=.0022*S.sens*(1-.4*P.ad);P.yaw-=e.movementX*m;P.pitch=clamp(P.pitch-e.movementY*m,-1.45,1.45);P.sx=clamp(P.sx-e.movementX*.0006,-.08,.08);P.sy=clamp(P.sy+e.movementY*.0004,-.06,.06)});
 addEventListener('mousedown',e=>{if(locked()){if(e.button==0){mouse=true;pull=true}if(e.button==2)rmb=true}});addEventListener('mouseup',e=>{if(e.button==0)mouse=false;if(e.button==2)rmb=false});
@@ -219,8 +219,8 @@ const bv=k=>`<button data-b="${k}" data-v="0" class="${S[k]?'':'on'}">Off</butto
 const SL=['Main skin','Slide','Threaded barrel','Muzzle','Siderail','Magazine','Trigger','Ammo'];
 function gun(){const n=GS[S.gun].name,hex='#'+COL[S.color].toString(16).padStart(6,'0');
  return `<div class="gt">${n.toUpperCase()}</div><span class="chip">Common</span><span class="chip cy">Cosmetic</span><div class="pv"><i style="background:${hex}"></i><u></u></div>
- <div class="slots">${SL.map((q,i)=>`<div class="sl" ${i==0?'data-c="1"':i==3?`data-b="supp" data-v="${S.supp?0:1}"`:''}><small>${q}</small><div>${i==3?(S.supp?'▮':'+'):''}</div><em>${i==0?['Black','Tan','Red'][S.color]:i==3?(S.supp?'Suppressor':'None'):i==7?['9mm','5.56','12 gauge','9mm','12 gauge'][S.gun]:'Stock'}</em></div>`).join('')}</div>
- <div class="ft2"><b data-w="${(S.gun+1)%5}">‹ ›</b> Switch weapon (1-5)</div>`}
+ <div class="slots">${SL.map((q,i)=>`<div class="sl" ${i==0?'data-c="1"':i==3?`data-b="supp" data-v="${S.supp?0:1}"`:''}><small>${q}</small><div>${i==3?(S.supp?'▮':'+'):''}</div><em>${i==0?['Black','Tan','Red'][S.color]:i==3?(S.supp?'Suppressor':'None'):i==7?['9mm','5.56','12 gauge','9mm','12 gauge','7.62'][S.gun]:'Stock'}</em></div>`).join('')}</div>
+ <div class="ft2"><b data-w="${(S.gun+1)%6}">‹ ›</b> Switch weapon (1-5)</div>`}
 function ui(){const key=tab=='camera'?'camera':sub,rows=PG[key],r=rows[Math.min(sel,rows.length-1)],nm=['gunsmith','settings','camera','play'];
  let h=`<div class="tb"><div class="hand l"></div><div class="hand r"></div><div class="scr"><div class="hd"><span data-x="1">‹ ${tab=='gunsmith'?'Modify '+GS[S.gun].name:tab=='play'?'Game':'Settings'}</span><nav>${nm.map((t,i)=>`<i>${i+1}</i><b data-t="${t}" class="${t==tab?'on':''}">${t[0].toUpperCase()+t.slice(1)}</b>`).join('')}</nav></div>`;
  if(tab=='gunsmith')h+=gun();
@@ -324,7 +324,7 @@ function onMsg(d){if(!d)return;const t=d.type,f=d.clientId;
  else if(t=='hit'){if(d.to===myId&&!dead)hurt(d.dmg,d.from||f);else if(d.to&&d.to.slice(0,4)=='bot_'&&isHost())botHit(d.to,d.dmg,f)}
  else if(t=='shot'){const p=peers[d.bot||f];if(!p||p.m!=mode)return;snd(SN[d.gun|0],p.pos,S.gv);p.kick=1;p.fl=.05;p.g.fm.rotation.z=Math.random()*6;const o=new THREE.Vector3(d.o[0],d.o[1],d.o[2]);muzzleFx(o,UPV,d.gun==2||d.gun==4);
   for(let i=0;i+5<d.h.length;i+=6){const e=new THREE.Vector3(d.h[i],d.h[i+1],d.h[i+2]);tracer(o,e);if(d.h[i+3]||d.h[i+4]||d.h[i+5])impact(e,new THREE.Vector3(d.h[i+3],d.h[i+4],d.h[i+5]),false);else impact(e,UPV,true)}}
- else if(t=='rl'){const p=peers[f];p&&p.m==mode&&snd(p.gn===3?'smgr':GS[p.gn|0]&&GS[p.gn|0].sg?'shell':'reload',p.pos,.8)}
+ else if(t=='rl'){const p=peers[f];p&&p.m==mode&&{const gi=d.gun==null?p.gn:d.gun;snd(gi===3?'smgr':gi===5?'snReload':GS[gi|0]&&GS[gi|0].sg?'shell':'reload',p.pos,.8)}}
  else if(t=='kill'){bkAdd(d.killer);msg(d.kn+' ▸ '+d.vn);if(d.killer===myId)me.kills++}
  else if(t=='chat'){if(!(PV[f]&&PV[f].m))chatMsg(nm(f),String(d.text||'').slice(0,120))}else if(t=='disconnected')dropPeer(f)}
 function lobbyList(){const a=[nm(myId)+' (you)'];if(room)for(const id in room.presence){const q=room.presence[id];if(id!=myId&&q&&q.m=='lobby')a.push(nm(id))}return a}
@@ -412,14 +412,14 @@ function bfs(a,b){const q=[[a[0],a[1]]],pr={};pr[a[0]*99+a[1]]=null;
   for(const[di,dj,ok]of[[1,0,i<NC-1&&!MV[i+1][j]],[-1,0,i>0&&!MV[i][j]],[0,1,j<NC-1&&!MH[i][j+1]],[0,-1,j>0&&!MH[i][j]]])if(ok){const k=(i+di)*99+j+dj;if(!(k in pr)){pr[k]=[i,j];q.push([i+di,j+dj])}}}
  const out=[];let k=b[0]*99+b[1];if(!(k in pr))return out;while(pr[k]){out.push([k/99|0,k%99]);const p=pr[k];k=p[0]*99+p[1]}return out.reverse()}
 function botSpawn(b){const t=b.team,e=()=>(t?NC-1-(Math.random()*3|0):Math.random()*3|0);b.x=(e()+.5)*CS;b.z=(e()+.5)*CS;b.yaw=b.by=t?Math.PI/4:-Math.PI*.75;b.hp=100;b.mag=GS[b.gun].cap;b.path=[];b.tgt=null;b.vx=b.vz=0;b.dead=0;b.ln=b.lt=b.cr=b.crT=b.ad=b.rp=0;b.rlT=0;b.rl=0}
-function botNew(t,k){const id='bot_'+t+'_'+k,b={id,team:t,k,x:0,y:0,z:0,yaw:0,pitch:0,by:0,ln:0,lt:0,rp:0,ad:0,cr:0,crT:0,rl:0,rlT:0,on:true,m:'tdm',hp:100,gun:[1,1,3,3,2,4,0][Math.random()*7|0],mag:30,cd:0,lc:0,sd:1,sdT:0,scan:Math.random()*.3,seen:0,aimE:0,pT:0,path:[],tgt:null,dead:0,react:0,skill:.5+Math.random()*.5,vx:0,vz:0};botSpawn(b);bots[id]=b;BD[id]=b;if(!peers[id])addPeer(id)}
+function botNew(t,k){const id='bot_'+t+'_'+k,b={id,team:t,k,x:0,y:0,z:0,yaw:0,pitch:0,by:0,ln:0,lt:0,rp:0,ad:0,cr:0,crT:0,rl:0,rlT:0,on:true,m:'tdm',hp:100,gun:[1,1,3,3,2,4,0][Math.random()*7|0],mag:30,cd:0,lc:0,sd:1,sdT:0,scan:Math.random()*.3,seen:0,aimE:0,pT:0,path:[],tgt:null,dead:0,react:0,skill:.35+Math.random()*.45,vx:0,vz:0};botSpawn(b);bots[id]=b;BD[id]=b;if(!peers[id])addPeer(id)}
 function enemies(b){const a=[];if(!dead&&me.team!==b.team&&me.hp>0)a.push({id:myId,x:P.x,z:P.z,cr:P.cr});
  if(room)for(const id in room.presence){const q=room.presence[id];if(id!=myId&&q&&q.m=='tdm'&&q.team>=0&&q.team!==b.team&&q.hp>0&&q.x!=null)a.push({id,x:q.x,z:q.z,cr:q.cr||0})}
  for(const id in bots){const o=bots[id];if(o.team!==b.team&&o.hp>0)a.push({id,x:o.x,z:o.z,cr:o.cr})}return a}
 function botDmg(t,dmg,from){if(t.id==myId){if(!dead)hurt(dmg,from)}else if(bots[t.id])botHit(t.id,dmg,from);else room&&room.send({type:'hit',to:t.id,dmg,from})}
 function botHit(id,dmg,from){const b=bots[id];if(!b||b.hp<=0)return;b.hp-=dmg;if(b.hp<=0){b.dead=4;b.tgt=null;const kn=nm(from),vn=nm(id);msg(kn+' ▸ '+vn);room&&room.send({type:'kill',killer:from,kn,vn});if(from==myId)me.kills++;bkAdd(from)}}
 function botFire(b,t,d){const g=b.gun,gs=GS[g];b.mag--;b.cd=g==2?1+Math.random()*.5:g==4?.35+Math.random()*.2:gs.rate*(gs.auto?2.4:1.5)+Math.random()*.12;
- let p=(g==2||g==4)?.95-d*.08:.78-d*.014;p+=b.ad*.12+(t.cr||0)*.05-Math.hypot(b.vx,b.vz)*.04;p=clamp(p*(.7+.4*b.skill),.06,.8);
+ let p=(g==2||g==4)?.95-d*.08:.78-d*.014;p+=b.ad*.12+(t.cr||0)*.05-Math.hypot(b.vx,b.vz)*.04;p=clamp(p*(.58+.35*b.skill),.04,.68);
  const hit=Math.random()<p,mz=[b.x-Math.sin(b.yaw)*.6,1.35-.5*b.cr,b.z-Math.cos(b.yaw)*.6].map(v=>+v.toFixed(2));let h;
  if(hit)h=[+t.x.toFixed(2),+(1.1+Math.random()*.6).toFixed(2),+t.z.toFixed(2),0,0,0];else{const f=Math.min(d+2,d*.5+3+Math.random()*8),a=(Math.random()-.5)*.3;h=[+(b.x-Math.sin(b.yaw+a)*f).toFixed(2),+(1+Math.random()*.8).toFixed(2),+(b.z-Math.cos(b.yaw+a)*f).toFixed(2),0,1,0]}
  const ev={type:'shot',bot:b.id,clientId:myId,gun:g,o:mz,h};onMsg(ev);room&&room.send(ev);
@@ -430,10 +430,10 @@ function botThink(b,dt){
  const cx=clamp(b.x/CS|0,0,NC-1),cz=clamp(b.z/CS|0,0,NC-1);
  if(b.scan<=0){b.scan=.25;const en=enemies(b).map(e=>(e.d=Math.hypot(e.x-b.x,e.z-b.z),e)).sort((p,q)=>p.d-q.d);b.near=en[0]||null;let f=null;
   for(const e of en.slice(0,3))if(e.d<38&&los(b.x,b.z,e.x,e.z)){f=e;break}
-  if(f&&(!b.tgt||b.tgt.id!==f.id))b.react=.3+.4*(1-b.skill);b.tgt=f;if(f){b.seen=3;b.last=[f.x,f.z]}}
+  if(f&&(!b.tgt||b.tgt.id!==f.id))b.react=.45+.55*(1-b.skill);b.tgt=f;if(f){b.seen=3;b.last=[f.x,f.z]}}
  let wx=0,wz=0,spd=0;const t=b.tgt,k=Math.min(1,dt*8);
  if(t){const dx=t.x-b.x,dz=t.z-b.z,d=Math.hypot(dx,dz),des=Math.atan2(-dx,-dz);b.aimE=clamp(b.aimE+(Math.random()-.5)*dt*2,-.06,.06);
-  const dyaw=wrap(des+b.aimE-b.yaw);b.yaw+=dyaw*Math.min(1,dt*(5+5*b.skill));b.by+=wrap(b.yaw-b.by)*Math.min(1,dt*4);b.pitch*=.95;
+  const dyaw=wrap(des+b.aimE-b.yaw);b.yaw+=dyaw*Math.min(1,dt*(3.8+4*b.skill));b.by+=wrap(b.yaw-b.by)*Math.min(1,dt*4);b.pitch*=.95;
   const far=d>12;b.ad+=((far&&b.gun!=2&&b.gun!=4?1:0)-b.ad)*k;
   b.sdT-=dt;if(b.sdT<=0){b.sdT=1+Math.random()*1.5;b.sd=Math.random()<.5?-1:1;b.crT=far&&Math.random()<.45?1:0;const lr=Math.random(),o=b.lt;b.lt=lr<.4?0:lr<.7?-1:1;if(b.lt!==0&&b.lt!==o)b.lc=.25}
   b.cr+=(b.crT-b.cr)*Math.min(1,dt*2.4);b.ln+=(b.lt-b.ln)*Math.min(1,dt*4);b.rp*=.9;
@@ -5094,8 +5094,8 @@ snd=function(n,pos,v=1,r=1){
  if(n==='shell'&&S.gun===2){baseSnd('sgRack',pos,v*S.gv,r);return}
  if(n==='reload'&&S.gun===5){baseSnd('snReload',pos,v*S.gv,r);return}
  const loud=/^(pistol|m4|sg|smg|snShot)$/.test(n);
- if(loud&&pos){const d=Math.hypot(pos.x-P.x,pos.z-P.z);if(d<8){hearing.peak=Math.max(hearing.peak,(1-d/8)*v);hearing.last=T}}
- baseSnd(n,pos,v,r);
+ if(loud){const d=pos?Math.hypot(pos.x-P.x,pos.z-P.z):0;if(d<8){hearing.peak=Math.max(hearing.peak,(1-d/8)*v);hearing.last=T}}
+ baseSnd(n,pos,v*(/^(reload|shell|smgr|sgRack|snRack|snReload)$/.test(n)?S.gv:1),r);
 };
 const origNetTick=netTick;
 netTick=function(dt){origNetTick(dt);if(hearing.loss>0){const f=1-hearing.loss;for(const id in peers){const p=peers[id];if(p.vg)p.vg.gain.value*=f}}};
@@ -5120,7 +5120,7 @@ step=function(dt){
  const g=guns[S.gun],gs=GS[S.gun];
  if(gs.sg&&rel>weaponAnim.reload+.01){weaponAnim.reload=rel;weaponAnim.kind='shell';weaponAnim.played=false}
  if(weaponAnim.rack>0){weaponAnim.rack=Math.max(0,weaponAnim.rack-dt);const f=1-weaponAnim.rack/(gs.sniper?.62:.34);vm.position.y-=Math.sin(Math.PI*f)*.09;vm.rotation.x+=Math.sin(Math.PI*f)*.28;if(gs.sniper&&g.bolt)g.bolt.position.x=.09+Math.sin(Math.PI*f)*.11;
-  if(!weaponAnim.played&&weaponAnim.rack<(gs.sniper?.42:.22)){snd(gs.sniper?'snRack':'sgRack',null,.85*S.gv);weaponAnim.played=true}}
+  if(!weaponAnim.played&&weaponAnim.rack<(gs.sniper?.42:.22)){snd(gs.sniper?'snRack':'sgRack',null,.85);weaponAnim.played=true}}
  if(weaponAnim.reload>0){weaponAnim.reload=Math.max(0,weaponAnim.reload-dt);const f=1-weaponAnim.reload/Math.max(.01,gs.dur),a=g.arms||[];
   const reach=Math.sin(Math.PI*Math.min(1,f*1.65));
   for(let i=0;i<a.length;i++){const hand=a[i];if(i===0||i===2){hand.position.y-=reach*.22;hand.position.x+=reach*.12;hand.rotation.z+=reach*.5}}
@@ -5136,7 +5136,7 @@ step=function(dt){
 GS[5].spread=0;GS[5].pel=1;GS[5].auto=false;
 /* hide the requested fixed visual controls, without changing their active values */
 for(const k of ['fish','vig','ca','grain','fov','lag','shake','tilt','sway','gr','gu','gf','hands','ammo'])for(const group in PG)PG[group]=PG[group].filter(row=>row[0]!==k);
-PG.audio.push(['gv','Gun sound volume',0,2,.05,'Master volume for gunshots, reloads, racks and handling sounds.']);
+
 PG.controls.push(['padSens','Controller look sensitivity',.5,3,.05,'Right-stick look sensitivity.']);
 PG.controls.push(['padDead','Controller stick deadzone',.05,.4,.01,'Ignore small stick drift.']);
 /* Preserve the user's desired visual tuning in reset defaults too. */
